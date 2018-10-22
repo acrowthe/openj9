@@ -25,7 +25,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 
 import org.testng.Assert;
 import static org.testng.Assert.*;
@@ -47,6 +46,8 @@ import org.testng.annotations.Test;
 
 @Test(groups = { "level.sanity" })
 public class ValueTypeTests {
+	static Class<?> point2DClass;
+	static Class<?> line2DClass;
 
 	/*
 	 * Create a value type
@@ -59,8 +60,7 @@ public class ValueTypeTests {
 	@Test(priority=1)
 	static public void testCreatePoint2D() throws Throwable {
 		String fields[] = {"x:I", "y:I"};
-		Class<?> point2DClass = ValueTypeGenerator.generateValueClass("Point2D", fields);
-		
+		point2DClass = ValueTypeGenerator.generateValueClass("Point2D", fields);
 	}
 
 	/*
@@ -75,7 +75,7 @@ public class ValueTypeTests {
 	@Test(priority=2)
 	static public void testCreateLine2D() throws Throwable {
 		String fields[] = {"st:QPoint2D;:value", "en:QPoint2D;:value"};
-		Class<?> point2DClass = ValueTypeGenerator.generateValueClass("Line2D", fields);
+		line2DClass = ValueTypeGenerator.generateValueClass("Line2D", fields);
 	}
 
 	/*
@@ -113,6 +113,34 @@ public class ValueTypeTests {
 			Class<?> noneValueQType = ValueTypeGenerator.generateValueClass("NoneValueQType", fields);
 			Assert.fail("should throw error. j.l.Object is not a qtype!");
 		} catch (IncompatibleClassChangeError e) {}
+	}
+
+	/*
+	* Test getting initial Qtype values.
+	* Gets Point2D.st initial value
+	*/
+	@Test(priority=3)
+	static public void testGetPoint2DValue() throws Throwable {
+		Class<?> point2D = point2DClass.newInstance();
+		// Point2D point = new Point2D();
+		Lookup lookup = MethodHandles.lookup();
+		MethodHandle getSt = lookup.findGetter(Point2D, "st", MethodType.methodType(int.class));
+		Assert.assertEquals(getSt.invoke(point), 0);
+	}
+
+	/*
+	 * Test setting Qtype values.
+	 * Sets Point2D.st = 1.
+	 */
+	@Test(priority=3)
+	static public void testSetPoint2DValue() throws Throwable {
+		final int testValue = 1;
+		Class<?> point2D = point2DClass.newInstance();
+		Lookup lookup = MethodHandles.lookup();
+		MethodHandle setSt = lookup.findSetter(Point2D, "st", MethodType.methodType(void.class, int.class));
+		setSt.invoke(point, testValue);
+		MethodHandle getSt = lookup.findGetter(Point2D, "st", MethodType.methodType(int.class));
+		Assert.assertEquals(getSt.invoke(point), testValue);
 	}
 
 }
