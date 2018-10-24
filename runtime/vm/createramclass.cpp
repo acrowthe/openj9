@@ -1652,7 +1652,21 @@ loadFlattenableFieldValueClasses(J9VMThread *currentThread, J9ClassLoader *class
 		const U_32 modifiers = field->modifiers;
 		J9UTF8 *signature = J9ROMFIELDSHAPE_SIGNATURE(field);
 		U_8 *signatureChars = J9UTF8_DATA(signature);
+
+
+		char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(romClass));
+		if(0 == strcmp(ac_classname, "Line2DRef")) {
+			printf("ramclass: Found Line2DRef\n");
+			printf("    signature: %s", signatureChars);
+			printf("    gdb catch\n");
+		}
+
+
+
+
 		if (('Q' == signatureChars[0]) && J9_ARE_NO_BITS_SET(modifiers, J9AccStatic)) {
+			// printf("ramclass: Found matching Q\n");
+			// printf("    gdb catch\n");
 			J9Class *valueClass = internalFindClassUTF8(currentThread, signatureChars + 1, J9UTF8_LENGTH(signature) - 2, classLoader, classPreloadFlags);
 			if (NULL == valueClass) {
 				result = FALSE;
@@ -1661,6 +1675,7 @@ loadFlattenableFieldValueClasses(J9VMThread *currentThread, J9ClassLoader *class
 				J9ROMClass *valueROMClass = valueClass->romClass;
 
 				if (J9_ARE_NO_BITS_SET(valueROMClass->modifiers, J9AccValueType)) {
+					// printf("    Erroring due to QType not value type\n");
 					J9UTF8 *badClass = NNSRP_GET(valueROMClass->className, J9UTF8*);
 					setCurrentExceptionNLSWithArgs(currentThread, J9NLS_VM_ERROR_QTYPE_NOT_VALUE_TYPE, J9VMCONSTANTPOOL_JAVALANGINCOMPATIBLECLASSCHANGEERROR, J9UTF8_LENGTH(badClass), J9UTF8_DATA(badClass));
 					result = FALSE;

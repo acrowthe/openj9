@@ -43,6 +43,8 @@
 #include "j2sever.h"
 #include "vmaccess.h"
 
+#include "string.h"
+
 #include "ArrayCopyHelpers.hpp"
 #include "AtomicSupport.hpp"
 #include "BytecodeAction.hpp"
@@ -1517,6 +1519,25 @@ obj:;
 				syncObject = (j9object_t)*newA0;
 			}
 		}
+		// char* ac2_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9_CLASS_FROM_METHOD(_sendMethod)->romClass));
+		// if(0 == strcmp(ac2_classname, "Line2DRef")) {
+		// 	printf("Inline: Found Line2DRef\n");
+		// 	printf("    _sp:        %p\n", _sp);
+		// 	printf("    argCount:   %d\n", J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod)->argCount);
+		// 	// printf("    syncObject: %p\n", );
+		// 	printf("    methodSig:  %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_SIGNATURE(J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod))));
+		// 	printf("    methodNam:  %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_NAME(J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod))));
+		// 	printf("    _literalBC: %p\n", _literals);
+		// }
+		// if(0 == strcmp(ac2_classname, "Point2D")) {
+		// 	printf("Inline: Found Line2DRef\n");
+		// 	printf("    _sp:        %p\n", _sp);
+		// 	printf("    argCount:   %d\n", J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod)->argCount);
+		// 	// printf("    syncObject: %p\n", syncObject);
+		// 	printf("    methodSig:  %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_SIGNATURE(J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod))));
+		// 	printf("    methodNam:  %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_NAME(J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod))));
+		// 	printf("    _literalBC: %p\n", _literals);
+		// }
 		U_16 tempCount = romMethod->tempCount;
 		_sp -= tempCount;
 		if (tempsNeedZeroing) {
@@ -1575,6 +1596,10 @@ obj:;
 			rc = GOTO_JAVA_STACK_OVERFLOW;
 		}
 done:
+		// if(0 == strcmp(ac2_classname, "Line2DRef") || 0 == strcmp(ac2_classname, "Point2D")) {
+		// 	printf("    new _sp:    %p\n", _sp);
+		// 	printf("    _literalBC: %p\n", _literals);
+		// }
 		return rc;
 	}
 
@@ -6377,12 +6402,54 @@ retry:
 					UDATA const newValueOffset = valueOffset + J9_OBJECT_HEADER_SIZE;
 					bool isVolatile = (0 != (flags & J9AccVolatile));
 					if (flags & J9FieldSizeDouble) {
+
+						// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9OBJECT_CLAZZ(_currentThread, objectref)->romClass));
+						// if(0 == strcmp(ac_classname, "Line2DRef")) {
+						// 	printf("Get: Found Line2DRef in double\n");
+						// 	printf("     Flags: %lu\n", flags);
+						// }
+						// if(0 == strcmp(ac_classname, "Point2D")) {
+						// 	printf("Get: Found Point2D in double\n");
+						// 	printf("Get: Flags: %lu\n", flags);
+						// }
+
 						_sp += (slotsToPop - 2);
 						*(U_64*)_sp = _objectAccessBarrier.inlineMixedObjectReadU64(_currentThread, objectref, newValueOffset, isVolatile);
 					} else if (flags & J9FieldFlagObject) {
+
+						// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9OBJECT_CLAZZ(_currentThread, objectref)->romClass));
+						// if(0 == strcmp(ac_classname, "Line2DRef")) {
+						// 	printf("Get: Found Line2DRef in object\n");
+						// 	printf("     Flags:     %lu\n", flags);
+						// 	printf("     Offset:    %lu\n", newValueOffset);
+						// 	printf("     _sp value: %lx, %lu\n", *_sp, *_sp);
+						// 	printf("\n");
+						// }
+						// if(0 == strcmp(ac_classname, "Point2D")) {
+						// 	printf("Get: Found Point2D in object\n");
+						// 	printf("     Flags: %lu\n", flags);
+						// }
+
 						_sp += (slotsToPop - 1);
 						*(j9object_t*)_sp = _objectAccessBarrier.inlineMixedObjectReadObject(_currentThread, objectref, newValueOffset, isVolatile);
 					} else {
+
+						// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9OBJECT_CLAZZ(_currentThread, objectref)->romClass));
+						// if(0 == strcmp(ac_classname, "Line2DRef")) {
+						// 	printf("Get: Found Line2DRef in other\n");
+						// 	printf("     Flags:     %lu\n", flags);
+						// 	printf("     Offset:    %lu\n", newValueOffset);
+						// 	printf("     _sp value: %lx, %lu\n", *_sp, *_sp);
+						// }
+						// if(0 == strcmp(ac_classname, "Point2D")) {
+						// 	printf("Get: Found Point2D in other\n");
+						// 	printf("     Flags:     %lu\n", flags);
+						// 	printf("     Offset:    %lu\n", newValueOffset);
+						// 	printf("     _sp value: %lx, %lu\n", *_sp, *_sp);
+						// 	printf("     _sp ref:   %p\n", (void *)_sp);
+						// 	printf("\n");
+						// }
+
 						_sp += (slotsToPop - 1);
 						*(U_32*)_sp = _objectAccessBarrier.inlineMixedObjectReadU32(_currentThread, objectref, newValueOffset, isVolatile);
 					}
@@ -6462,6 +6529,17 @@ retry:
 					rc = THROW_NPE;
 					goto done;
 				}
+
+				// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9OBJECT_CLAZZ(_currentThread, objectref)->romClass));
+				// if(0 == strcmp(ac_classname, "Line2DRef")) {
+				// 	printf("Put: Found Line2DRef in Double\n");
+				// 	printf("     Flags: %lu\n", flags);
+				// }
+				// if(0 == strcmp(ac_classname, "Point2D")) {
+				// 	printf("Put: Found Point2D in Double\n");
+				// 	printf("Put: Flags: %lu\n", flags);
+				// }
+ 
 				_objectAccessBarrier.inlineMixedObjectStoreU64(_currentThread, objectref, newValueOffset, *(U_64*)_sp, isVolatile);
 				_sp += 3;
 			} else if (flags & J9FieldFlagObject) {
@@ -6470,6 +6548,24 @@ retry:
 					rc = THROW_NPE;
 					goto done;
 				}
+
+				// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9OBJECT_CLAZZ(_currentThread, objectref)->romClass));
+				// if(0 == strcmp(ac_classname, "Line2DRef")) {
+				// 	printf("Put: Found Line2DRef in object\n");
+				// 	printf("     Flags:     %lu\n", flags);
+				// 	printf("     Offset:    %lu\n", newValueOffset);
+				// 	printf("     _sp value: %lx, %lu\n", *_sp, *_sp);
+				// 	printf("     _sp:       %p\n", _sp);
+				// 	printf("     methodSig: %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_SIGNATURE(J9_ROM_METHOD_FROM_RAM_METHOD(_literals))));
+				// 	printf("     methodNam: %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_NAME(J9_ROM_METHOD_FROM_RAM_METHOD(_literals))));
+				// 	printf("     className: %s\n", (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME((J9ROMClass*)((J9Method*)_literals)->constantPool->ramClass->romClass)));
+				// 	printf("\n");
+				// }
+				// if(0 == strcmp(ac_classname, "Point2D")) {
+				// 	printf("Put: Found Point2D in object\n");
+				// 	printf("     Flags: %lu\n", flags);
+				// }
+ 
 				_objectAccessBarrier.inlineMixedObjectStoreObject(_currentThread, objectref, newValueOffset, *(j9object_t*)_sp, isVolatile);
 				_sp += 2;
 			} else {
@@ -6478,6 +6574,27 @@ retry:
 					rc = THROW_NPE;
 					goto done;
 				}
+
+				// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9OBJECT_CLAZZ(_currentThread, objectref)->romClass));
+				// if(0 == strcmp(ac_classname, "Line2DRef")) {
+				// 	printf("Put: Found Line2DRef in other\n");
+				// 	printf("     Flags:     %lu\n", flags);
+				// 	printf("     Offset:    %lu\n", newValueOffset);
+				// 	printf("     _sp value: %lx, %lu\n", *_sp, *_sp);
+				// 	printf("     _sp:       %p\n", _sp);
+				// 	printf("     methodSig: %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_SIGNATURE(J9_ROM_METHOD_FROM_RAM_METHOD(_literals))));
+				// 	printf("     methodNam: %s\n", (char*)J9UTF8_DATA(J9ROMMETHOD_NAME(J9_ROM_METHOD_FROM_RAM_METHOD(_literals))));
+				// 	printf("     className: %s\n", (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME((J9ROMClass*)((J9Method*)_literals)->constantPool->ramClass->romClass)));
+				// 	printf("\n");
+				// }
+				// if(0 == strcmp(ac_classname, "Point2D")) {
+				// 	printf("Put: Found Point2D in other\n");
+				// 	printf("     Flags:     %lu\n", flags);
+				// 	printf("     Offset:    %lu\n", newValueOffset);
+					// printf("     _sp value: %lx, %lu\n", *_sp, *_sp);
+					// printf("\n");
+				// }
+ 
 				U_32 value = *(U_32*)_sp;
 				if (J9FieldTypeBoolean == (flags & J9FieldTypeMask)) {
 					value &= 1;
@@ -6528,6 +6645,15 @@ done:
 		} else {
 			J9Class *receiverClass = J9OBJECT_CLAZZ(_currentThread, receiver);
 			_sendMethod = *(J9Method**)((UDATA)receiverClass + methodIndex);
+			// char* ac_classname = (char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(receiverClass->romClass));
+			// if(0 == strcmp(ac_classname, "Line2DRef")) {
+			// 		printf("Invoke: Found Line2DRef\n");
+			// 		printf("    argCount: %lu\n", (methodIndexAndArgCount & 0xFF));
+			// }
+			// if(0 == strcmp(ac_classname, "Point2D")) {
+			// 		printf("Invoke: Found Point2D\n");
+			// 		printf("    argCount: %lu\n", (methodIndexAndArgCount & 0xFF));
+			// }
 			if (fromBytecode) {
 				profileInvokeReceiver(REGISTER_ARGS, receiverClass, _literals, _sendMethod);
 			}
@@ -8735,6 +8861,14 @@ methodEnter:
 #endif /* DO_HOOKS */
 
 runMethodInterpreted:
+	if(0 == strcmp((char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9_CLASS_FROM_METHOD(_sendMethod)->romClass)), "Line2DRef")) {
+		printf("Send:   Found Line2DRef\n");
+		printf("        _sp:     %p\n", &**(J9Object**)_sp);
+	}
+	if(0 == strcmp((char*)J9UTF8_DATA(J9ROMCLASS_CLASSNAME(J9_CLASS_FROM_METHOD(_sendMethod)->romClass)), "Point2D")) {
+		printf("Send:   Found Point2D\n");
+		printf("        _sp:     %p\n", &**(J9Object**)_sp);
+	}
 	if (J9_ARE_ANY_BITS_SET(J9_ROM_METHOD_FROM_RAM_METHOD(_sendMethod)->modifiers, J9AccNative)) {
 		goto jni;
 	}

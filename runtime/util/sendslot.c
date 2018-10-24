@@ -44,6 +44,7 @@ getSendSlotsFromSignature(const U_8* signature)
 				break;
 			}
 		case 'L':
+		case 'Q':
 			for (i++; signature[i] != ';'; i++);
 			sendArgs++;
 			break;

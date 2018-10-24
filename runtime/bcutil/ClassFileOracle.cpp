@@ -835,11 +835,12 @@ ClassFileOracle::computeSendSlotCount(U_16 methodIndex)
 			while ((index < count) && ('[' == bytes[index])) {
 				++index;
 			}
-			if ((index >= count) || ('L' != bytes[index])) {
+			if ((index >= count) || !(('L' == bytes[index]) || ('Q' == bytes[index]))) {
 				break;
 			}
 			/* fall through */
 		case 'L':
+		case 'Q': 
 			++index;
 			while ((index < count) && (';' != bytes[index])) {
 				++index;

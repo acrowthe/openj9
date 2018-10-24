@@ -56,7 +56,7 @@ const U_8 fieldModifiersLookupTable[] = {
 	0x00												/* N */,
 	0x00												/* O */,
 	0x00												/* P */,
-	0x00												/* Q */,
+	(U_8)(J9FieldFlagObject >> 16)						/* Q */,
 	0x00												/* R */,
 	(U_8)(J9FieldTypeShort >> 16)						/* S */,
 	0x00												/* T */,

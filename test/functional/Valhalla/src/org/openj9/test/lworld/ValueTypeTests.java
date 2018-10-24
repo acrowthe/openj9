@@ -50,9 +50,17 @@ public class ValueTypeTests {
 	static Lookup lookup = MethodHandles.lookup();
 	static Class point2DClass = null;
 	static Class line2DClass = null;
+	static Class line2DRefClass = null;
+	/* Point2D methods */
 	static MethodHandle makePoint2D = null;
 	static MethodHandle getX = null;
 	static MethodHandle getY = null;
+	/* Line2DRef methods */
+	static MethodHandle makeLine2DRef = null;
+	static MethodHandle getStRef = null;
+	static MethodHandle getEnRef = null;
+	static MethodHandle setStRef = null;
+	static MethodHandle setEnRef = null;
 
 	
 	/*
@@ -79,10 +87,8 @@ public class ValueTypeTests {
 		
 		assertEquals(getX.invoke(point2D), 2);
 		assertEquals(getY.invoke(point2D), 4);
-		
 		setX.invoke(point2D, 1);
 		setY.invoke(point2D, 3);
-		
 		assertEquals(getX.invoke(point2D), 1);
 		assertEquals(getY.invoke(point2D), 3);
 	}
@@ -97,10 +103,44 @@ public class ValueTypeTests {
 	 * 
 	 */
 	@Test(priority=2)
-	static public void testCreateLine2D() throws Throwable {
+	static public void testCreateLine2DRef() throws Throwable {
 		String fields[] = {"st:QPoint2D;:value", "en:QPoint2D;:value"};
-		line2DClass = ValueTypeGenerator.generateValueClass("Line2D", fields);
-		
+		line2DRefClass = ValueTypeGenerator.generateRefClass("Line2DRef", fields);
+		/* Setup Line2DRef methods */
+		makeLine2DRef = lookup.findStatic(line2DRefClass, "makeRefGeneric", MethodType.methodType(line2DRefClass, Object.class, Object.class));
+		getStRef = generateGenericGetter(line2DRefClass, "st");
+		getEnRef = generateGenericGetter(line2DRefClass, "en");
+		setStRef = generateGenericSetter(line2DRefClass, "st");
+		setEnRef = generateGenericSetter(line2DRefClass, "en");
+
+		/* Setup test variables */
+		int pointAX = 0xDEFEFEF1;
+		int pointAY = 0xEEFEFEF2;
+		int pointBX = 0x1EFEFEF4;
+		int pointBY = 0x0EFEFEFF;
+		Object point2DA = makePoint2D.invoke(pointAX, pointAY);
+		Object point2DB = makePoint2D.invoke(pointBX, pointBY);
+		Object line2DRef = makeLine2DRef.invoke(point2DA, point2DB);
+		Object point2DStOut;
+		Object point2DEnOut;
+
+		/* Verify that initialization and getters work */
+		point2DStOut = getStRef.invoke(line2DRef);
+		point2DEnOut = getEnRef.invoke(line2DRef);
+		assertEquals(getX.invoke(point2DStOut), pointAX);
+		assertEquals(getY.invoke(point2DStOut), pointAY);
+		assertEquals(getX.invoke(point2DEnOut), pointBX);
+		assertEquals(getY.invoke(point2DEnOut), pointBY);
+
+		/* Verify that setters work */
+		Object test = point2DB;
+		setStRef.invoke(line2DRef, point2DB);
+		setEnRef.invoke(line2DRef, point2DA);
+		point2DStOut = getStRef.invoke(line2DRef);
+		point2DEnOut = getEnRef.invoke(line2DRef);
+		assertEquals(point2DStOut, point2DB);
+		assertEquals(point2DEnOut, point2DA);
+
 		//TODO need q signature support to do anything else with Line2D
 	}
 
@@ -115,7 +155,7 @@ public class ValueTypeTests {
 	 */
 	@Test(priority=3)
 	static public void testInvalidNestedField() throws Throwable {
-		String fields[] = {"st:QPoint2D;:value", "x:QInvalid;:value"};
+		String fields[] = {"x:QPoint2D;:value", "st:QInvalid;:value"};
 
 		try {
 			Class<?> invalidField = ValueTypeGenerator.generateValueClass("InvalidField", fields);
@@ -134,13 +174,38 @@ public class ValueTypeTests {
 	 */
 	@Test(priority=3)
 	static public void testNoneValueQTypeAsNestedField() throws Throwable {
-		String fields[] = {"st:QPoint2D;:value", "unsafe:Qjava/lang/Object;:value"};
+		String fields[] = {"unsafe:Qjava/lang/Object;:value", "st:QPoint2D;:value"};
 		try {
 			Class<?> noneValueQType = ValueTypeGenerator.generateValueClass("NoneValueQType", fields);
 			Assert.fail("should throw error. j.l.Object is not a qtype!");
 		} catch (IncompatibleClassChangeError e) {}
 	}
 	
+	/*
+	 * Test setting QType to null
+	 */
+	/* 
+	 * TODO Once bytecode support to prevent nullable Q Types is added,
+	 * this should be uncommented.
+	 * The catch block exception types and error messages should also be
+	 * updated to match the correct exceptions
+	 */
+	/* 
+	 * @Test(priority=3)
+	 * static public void testSettingQTypeToNull() throws Throwable {
+	 * 	Object point = makePoint2D.invoke(0xFEFEFEFE, 0x1E1E1E1E);
+	 * 	try {
+	 * 		Object line2DRef = makeLine2DRef.invoke(point, null);
+	 * 		Assert.fail("Should throw error. Can't initialize QType to null!");
+	 * 	} catch (Exception e) {} // TODO update Exception to be correct type, once bytecode support added
+	 * 	try {
+	 * 		Object line2DRef = makeLine2DRef.invoke(point, point);
+	 * 		setStRef.invoke(line2DRef, null);
+	 * 		Assert.fail("Should throw error. Can't set QType to null!");
+	 * 	} catch (Exception e) {} // TODO update Exception to be correct type, once bytecode support added
+	 * }
+	 */
+
 	static MethodHandle generateGetter(Class<?> clazz, String fieldName, Class<?> fieldType) {
 		try {
 			return lookup.findVirtual(clazz, "get"+fieldName, MethodType.methodType(fieldType));
@@ -177,4 +242,29 @@ public class ValueTypeTests {
 		return null;
 	}
 
+
+	// private static void checkValues(Object o) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2, Object o3) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2, Object o3, Object o4) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2, Object o3, Object o4, Object o5) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2, Object o3, Object o4, Object o5, Object o6) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2, Object o3, Object o4, Object o5, Object o6, Object o7) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
+	// private static void checkValues(Object o, Object o2, Object o3, Object o4, Object o5, Object o6, Object o7, Object o8) {
+	// 	com.ibm.jvm.Dump.SystemDump();
+	// }
 }

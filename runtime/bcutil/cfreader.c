@@ -2512,6 +2512,11 @@ j9bcutil_readClassFileBytes(J9PortLibrary *portLib,
 
 	CHECK_EOF(8);
 	classfile->accessFlags = NEXT_U16(classfile->accessFlags, index);
+	if (classfile->accessFlags & CFR_ACC_VALUE_TYPE) {
+		printf("cfreader: Found value type\n");
+		printf("    gdbcatch?");
+		printf(" gdbcatch2\n");
+	}
 
 	/* class files with the ACC_MODULE flag set cannot be loaded */
 	if (((flags & BCT_MajorClassFileVersionMask) >= BCT_Java9MajorVersionShifted)
@@ -2524,6 +2529,11 @@ j9bcutil_readClassFileBytes(J9PortLibrary *portLib,
 
 	/* mask access flags to remove unused access bits */
 	classfile->accessFlags &= CFR_CLASS_ACCESS_MASK;
+
+	if (classfile->accessFlags & CFR_ACC_VALUE_TYPE) {
+		printf("    Value type post mask\n");
+	}
+
 	classfile->j9Flags = 0;
 
 	if ((classfile->accessFlags & (CFR_ACC_INTERFACE | CFR_ACC_ABSTRACT)) == CFR_ACC_INTERFACE) {

@@ -27,6 +27,7 @@ import jdk.internal.misc.Unsafe;
 
 import static org.objectweb.asm.Opcodes.*;
 
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
@@ -472,10 +473,18 @@ public class ValueTypeGenerator {
 	}
 	
 	private static Class<?> defineClass(String className, byte[] bytes, ClassLoader loader, ProtectionDomain pD) throws Throwable {
+		if ("Line2DRef" == className) {
+			System.out.printf("Writing class\n");
+			try (FileOutputStream fos = new FileOutputStream("/home/andrewc/space/Line2DRef.class")) {
+				fos.write(bytes);
+				System.out.printf("Wrote class\n");
+				//fos.close(); There is no more need for this line since you had created the instance of "fos" inside the try. And this will automatically close the OutputStream
+			}
+		}
 		return unsafe.defineClass(className, bytes, 0, bytes.length, loader, pD);
 	}
 	
-	public static Class<?> generateValueClass(String name, String[] fields) throws Throwable {
+	public static Class<?> generateValueClass(String name, String[] fields) throws Throwable {		
 		return ValueTypeGenerator.defineClass(name, ValueTypeGenerator.generateValue(name, fields), ValueTypeGenerator.class.getClassLoader(), ValueTypeGenerator.class.getProtectionDomain());
 	}
 	
