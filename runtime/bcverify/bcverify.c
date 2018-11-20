@@ -1673,10 +1673,39 @@ simulateStack (J9BytecodeVerificationData * verifyData)
 			case JBputfield: /* Field bytecode recievers */
 #if defined(J9VM_OPT_VALHALLA_VALUE_TYPES)
 			case JBwithfield: // TODO: ValueTypes Perform correct verification
+				// type = POP;
+				// if ((*J9UTF8_DATA(utf8string) == 'Q')) {
+				// 	printf("Found QType\n");
+				// 	printf("  Type: %lx\n", type);
+				// 	printf("  %s\n", (char*)J9UTF8_DATA(utf8string));
+					// if (type & BCV_BASE_TYPE_NULL) {
+					// 	// TODO: andrewc set up error code
+					// 	errorType = J9NLS_BCV_ERR_STACK_UNDERFLOW__ID;
+					// 	verboseErrorCode = BCV_ERR_STACK_UNDERFLOW;
+					// 	/* Always set to the location of the 1st data type on 'stack' to show up if stackTop <= stackBase */
+					// 	errorStackIndex = (U_32)(stackBase - liveStack->stackElements);
+					// 	goto _verifyError;
+					// }
+				// }
 #endif
 				DROP(1); /* fallthrough */
 			case JBputstatic:
-				DROP(1);
+				// printf("  %s\n", (char*)J9UTF8_DATA(utf8string));
+				type = POP;
+				if ('Q' == *J9UTF8_DATA(utf8string)) {
+					printf("Found QType\n");
+					printf("  Type: %lx\n", type);
+					printf("  %s\n", (char*)J9UTF8_DATA(utf8string));
+					if  (type == BCV_BASE_TYPE_NULL) {
+						printf("  Found NULL, dying\n");
+						// errorType = J9NLS_BCV_ERR_STACK_UNDERFLOW__ID;
+						// verboseErrorCode = BCV_ERR_STACK_UNDERFLOW;
+						// /* Always set to the location of the 1st data type on 'stack' to show up if stackTop <= stackBase */
+						// errorStackIndex = (U_32)(stackBase - liveStack->stackElements);
+						// goto _verifyError;
+					}
+				}
+				// DROP(1);
 				if ((*J9UTF8_DATA(utf8string) == 'D') || (*J9UTF8_DATA(utf8string) == 'J')) {
 					DROP(1);
 				}
