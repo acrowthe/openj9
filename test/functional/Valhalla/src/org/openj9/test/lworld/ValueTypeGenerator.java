@@ -27,20 +27,23 @@ import jdk.internal.misc.Unsafe;
 
 import static org.objectweb.asm.Opcodes.*;
 
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ValueTypeGenerator {
+public class ValueTypeGenerator extends ClassLoader {
 	private static Unsafe unsafe;
+	static ValueTypeGenerator generator;
 	
 	/* workaround till the new ASM is released */
 	public static final int DEFAULTVALUE = 203;
 	public static final int WITHFIELD = 204;
 	private static final int ACC_VALUE_TYPE = 0x100;
-	
+
 	static {
+		generator = new ValueTypeGenerator();
 		try {
 			Field f = Unsafe.class.getDeclaredField("theUnsafe");
 			f.setAccessible(true);
@@ -48,6 +51,12 @@ public class ValueTypeGenerator {
 		} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
 			e.printStackTrace();
 		}	
+	}
+	
+	public Class loadCustomClass(String className, byte[] bytes) {
+		Class clazz = super.defineClass(className, bytes, 0, bytes.length);
+		resolveClass(clazz);
+		return clazz;
 	}
 	
 	private static byte[] generateValue(String valueName, String[] fields) {
@@ -87,6 +96,46 @@ public class ValueTypeGenerator {
 		initHelper(cw);
 		
 		makeRefHelper(cw, valueName, makeValueSig, makeValueGenericSig, fields, makeMaxLocal);
+
+		cw.visitEnd();
+
+		return cw.toByteArray();
+	}
+	
+	private static byte[] generateValueSafe(String valueName, String[] fields) {
+		ClassWriter cw = new ClassWriter(0);
+		FieldVisitor fv;
+		MethodVisitor mv;
+
+		cw.visit(55, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_VALUE_TYPE, valueName, null, "java/lang/Object", null);
+
+		cw.visitSource(valueName + ".java", null);
+		
+		int makeMaxLocal = 0;
+		String makeValueSig = "";
+		for (String s : fields) {
+			String nameAndSigValue[] = s.split(":");
+			int fieldModifiers = ACC_PUBLIC; //TODO this will be set to final once withfield support is enabled
+			fv = cw.visitField(fieldModifiers, nameAndSigValue[0], nameAndSigValue[1], null, null);
+			fv.visitEnd();
+			makeValueSig += nameAndSigValue[1];
+			if (nameAndSigValue[1].equals("J") || nameAndSigValue[1].equals("D")) {
+				makeMaxLocal += 2;
+			} else {
+				makeMaxLocal += 1;
+			}
+			generateGetterSafe(cw, nameAndSigValue, valueName);
+			
+			generateSetterSafe(cw, nameAndSigValue, valueName);
+			
+			// generateWither(cw, nameAndSigValue, valueName);
+		}
+		
+		makeSafe(cw, valueName, "makeValue", makeValueSig, fields, makeMaxLocal);
+		
+		initHelper(cw);
+		
+		// makeRefSafe(cw, valueName, "makeRef", makeValueSig, fields, makeMaxLocal);
 
 		cw.visitEnd();
 
@@ -199,10 +248,13 @@ public class ValueTypeGenerator {
 	}
 	
 	private static void makeValueHelper(ClassWriter cw, String valueName, String makeValueSig, String makeValueGenericSig, String[] fields, int makeMaxLocal) {
+		makeSafe(cw, valueName, "makeValue", makeValueSig, fields, makeMaxLocal);
 		makeGeneric(cw, valueName, "makeValueGeneric", "makeValue", makeValueSig, makeValueGenericSig, fields, makeMaxLocal);
-		
+	}
+	
+	private static void makeSafe(ClassWriter cw, String valueName, String methodName, String makeValueSig, String[] fields, int makeMaxLocal) {
 		boolean doubleDetected = false;
-		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC  + ACC_STATIC, "makeValue", "(" + makeValueSig + ")L" + valueName + ";", null, null);
+		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC  + ACC_STATIC, methodName, "(" + makeValueSig + ")L" + valueName + ";", null, null);
 		mv.visitCode();
 		mv.visitTypeInsn(DEFAULTVALUE, valueName);
 		for (int i = 0; i <  fields.length; i++) {
@@ -230,7 +282,7 @@ public class ValueTypeGenerator {
 				mv.visitVarInsn(ALOAD, i);
 				break;
 			}
-			mv.visitFieldInsn(WITHFIELD, valueName, nameAndSig[0], nameAndSig[1]);
+			mv.visitFieldInsn(PUTFIELD, valueName, nameAndSig[0], nameAndSig[1]);
 		}
 		mv.visitInsn(ARETURN);
 		
@@ -238,7 +290,7 @@ public class ValueTypeGenerator {
 		mv.visitMaxs(maxStackAndLocals, fields.length);
 		mv.visitEnd();
 	}
-	
+
 	private static void makeGeneric(ClassWriter cw, String className, String methodName, String specificMethodName, String makeValueSig, String makeValueGenericSig, String[] fields, int makeMaxLocal) {
 		int maxStack = 0;
 		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC  + ACC_STATIC, methodName, "(" + makeValueGenericSig + ")L" + className + ";", null, new String[] {"java/lang/Exception"});
@@ -296,11 +348,14 @@ public class ValueTypeGenerator {
 	}
 	
 	private static void makeRefHelper(ClassWriter cw, String className, String makeValueSig, String makeValueGenericSig, String[]fields, int makeMaxLocal) {
+		makeRefSafe(cw, className, "makeRef", makeValueSig, fields, makeMaxLocal);
 		makeGeneric(cw, className, "makeRefGeneric", "makeRef", makeValueSig, makeValueGenericSig, fields, makeMaxLocal);
-
+	}
+	
+	private static void makeRefSafe(ClassWriter cw, String className, String methodName, String makeValueSig, String[]fields, int makeMaxLocal) {
 		boolean doubleDetected = false;
 		
-		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC  + ACC_STATIC, "makeRef", "(" + makeValueSig + ")L" + className + ";", null, null);
+		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC  + ACC_STATIC, methodName, "(" + makeValueSig + ")L" + className + ";", null, null);
 		mv.visitCode();
 		mv.visitTypeInsn(NEW, className);
 		mv.visitInsn(DUP);
@@ -344,36 +399,9 @@ public class ValueTypeGenerator {
 
 	private static void generateSetter(ClassWriter cw, String[] nameAndSigValue, String className) {
 		/* generate setter */
-		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "set" + nameAndSigValue[0], "(" + nameAndSigValue[1] + ")V", null, null);
-		mv.visitCode();
-		mv.visitVarInsn(ALOAD, 0);
-		switch (nameAndSigValue[1]) {
-		case "D":
-			mv.visitVarInsn(DLOAD, 1);
-			break;
-		case "I":
-		case "Z":
-		case "B":
-		case "C":
-		case "S":
-			mv.visitVarInsn(ILOAD, 1);
-			break;
-		case "F":
-			mv.visitVarInsn(FLOAD, 1);
-			break;
-		case "J":
-			mv.visitVarInsn(LLOAD, 1);
-			break;
-		default:
-			mv.visitVarInsn(ALOAD, 1);
-			break;
-		}
-		mv.visitFieldInsn(PUTFIELD, className, nameAndSigValue[0], nameAndSigValue[1]);
-		mv.visitInsn(RETURN);
-		mv.visitMaxs(2, 2);
-		mv.visitEnd();
+		generateSetterSafe(cw, nameAndSigValue, className);
 		
-		mv = cw.visitMethod(ACC_PUBLIC, "setGeneric" + nameAndSigValue[0], "(Ljava/lang/Object;)V", null, null);
+		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "setGeneric" + nameAndSigValue[0], "(Ljava/lang/Object;)V", null, null);
 		mv.visitCode();
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitVarInsn(ALOAD, 1);
@@ -415,6 +443,38 @@ public class ValueTypeGenerator {
 		mv.visitMaxs(2, 2);
 		mv.visitEnd();
 	}
+
+	private static void generateSetterSafe(ClassWriter cw, String[] nameAndSigValue, String className) {
+		/* generate setter */
+		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "set" + nameAndSigValue[0], "(" + nameAndSigValue[1] + ")V", null, null);
+		mv.visitCode();
+		mv.visitVarInsn(ALOAD, 0);
+		switch (nameAndSigValue[1]) {
+		case "D":
+			mv.visitVarInsn(DLOAD, 1);
+			break;
+		case "I":
+		case "Z":
+		case "B":
+		case "C":
+		case "S":
+			mv.visitVarInsn(ILOAD, 1);
+			break;
+		case "F":
+			mv.visitVarInsn(FLOAD, 1);
+			break;
+		case "J":
+			mv.visitVarInsn(LLOAD, 1);
+			break;
+		default:
+			mv.visitVarInsn(ALOAD, 1);
+			break;
+		}
+		mv.visitFieldInsn(WITHFIELD, className, nameAndSigValue[0], nameAndSigValue[1]);
+		mv.visitInsn(RETURN);
+		mv.visitMaxs(2, 2);
+		mv.visitEnd();
+	}
 	
 	private static void generateWither(ClassWriter cw, String[] nameAndSigValue, String className) {
 		/* generate setter */
@@ -449,35 +509,8 @@ public class ValueTypeGenerator {
 	}
 	
 	private static void generateGetter(ClassWriter cw, String[] nameAndSigValue, String className) {
-		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "get" + nameAndSigValue[0], "()" + nameAndSigValue[1], null, null);
-		mv.visitCode();
-		mv.visitVarInsn(ALOAD, 0);
-		mv.visitFieldInsn(GETFIELD, className, nameAndSigValue[0], nameAndSigValue[1]);
-		switch (nameAndSigValue[1]) {
-		case "D":
-			mv.visitInsn(DRETURN);
-			break;
-		case "I":
-		case "Z":
-		case "B":
-		case "C":
-		case "S":
-			mv.visitInsn(IRETURN);
-			break;
-		case "F":
-			mv.visitInsn(FRETURN);
-			break;
-		case "J":
-			mv.visitInsn(LRETURN);
-			break;
-		default:
-			mv.visitInsn(ARETURN);
-			break;
-		}
-		mv.visitMaxs(1, 1);
-		mv.visitEnd();
-		
-		mv = cw.visitMethod(ACC_PUBLIC, "getGeneric" + nameAndSigValue[0], "()Ljava/lang/Object;", null, null);
+		generateGetterSafe(cw, nameAndSigValue, className);
+		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "getGeneric" + nameAndSigValue[0], "()Ljava/lang/Object;", null, null);
 		mv.visitCode();
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitMethodInsn(INVOKEVIRTUAL, className, "get" + nameAndSigValue[0], "()" + nameAndSigValue[1], false);
@@ -513,13 +546,55 @@ public class ValueTypeGenerator {
 		mv.visitMaxs(2, 1);
 		mv.visitEnd();
 	}
+
+	private static void generateGetterSafe(ClassWriter cw, String[] nameAndSigValue, String className) {
+		MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "get" + nameAndSigValue[0], "()" + nameAndSigValue[1], null, null);
+		mv.visitCode();
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitFieldInsn(GETFIELD, className, nameAndSigValue[0], nameAndSigValue[1]);
+		switch (nameAndSigValue[1]) {
+		case "D":
+			mv.visitInsn(DRETURN);
+			break;
+		case "I":
+		case "Z":
+		case "B":
+		case "C":
+		case "S":
+			mv.visitInsn(IRETURN);
+			break;
+		case "F":
+			mv.visitInsn(FRETURN);
+			break;
+		case "J":
+			mv.visitInsn(LRETURN);
+			break;
+		default:
+			mv.visitInsn(ARETURN);
+			break;
+		}
+		mv.visitMaxs(1, 1);
+		mv.visitEnd();
+	}
 	
 	private static Class<?> defineClass(String className, byte[] bytes, ClassLoader loader, ProtectionDomain pD) throws Throwable {
 		return unsafe.defineClass(className, bytes, 0, bytes.length, loader, pD);
 	}
 	
+	private static Class<?> defineClassSafe(String className, byte[] bytes, ClassLoader loader, ProtectionDomain pD) throws Throwable {
+		try (FileOutputStream fos = new FileOutputStream("/home/andrewc/space/" + className + ".class")) {
+			fos.write(bytes);
+			System.out.printf("File /home/andrewc/space/%s.class written%n", className);
+		}
+		return generator.loadCustomClass(className, bytes);
+	}
+	
 	public static Class<?> generateValueClass(String name, String[] fields) throws Throwable {
 		return ValueTypeGenerator.defineClass(name, ValueTypeGenerator.generateValue(name, fields), ValueTypeGenerator.class.getClassLoader(), ValueTypeGenerator.class.getProtectionDomain());
+	}
+	
+	public static Class<?> generateValueClassSafe(String name, String[] fields) throws Throwable {
+		return ValueTypeGenerator.defineClassSafe(name, ValueTypeGenerator.generateValueSafe(name, fields), ValueTypeGenerator.class.getClassLoader(), ValueTypeGenerator.class.getProtectionDomain());
 	}
 	
 	public static Class<?> generateRefClass(String name, String[] fields) throws Throwable {

@@ -55,6 +55,37 @@ public class ValueTypeTests {
 	static MethodHandle getY = null;
 
 	
+	@Test(priority=2)
+	static public void testCreatePoint2DSafe() throws Throwable {
+		String fields[] = {"x:I", "y:I"};
+		Class point2DClassSafe = ValueTypeGenerator.generateValueClassSafe("Point2DSafe", fields);
+		MethodHandle makePoint2DSafe = lookup.findStatic(point2DClassSafe, "makeValue", MethodType.methodType(point2DClassSafe, int.class, int.class));
+		
+		MethodHandle getXSafe = generateGetter(point2DClassSafe, "x", int.class);
+		MethodHandle setX = generateSetter(point2DClassSafe, "x", int.class);
+		MethodHandle getYSafe = generateGetter(point2DClassSafe, "y", int.class);
+		MethodHandle setY = generateSetter(point2DClassSafe, "y", int.class);
+
+		int x = 0xFFEEFFEE;
+		int y = 0xAABBAABB;
+		int xNew = 0x11223344;
+		int yNew = 0x99887766;
+		
+		Object point2DSafe = makePoint2DSafe.invoke(x, y);
+		
+		String fields2[] = {"st:QPoint2DSafe;:value", "en:QPoint2DSafe;:value"};
+
+		assertEquals(getX.invoke(point2DClassSafe), x);
+		assertEquals(getY.invoke(point2DClassSafe), y);
+		
+		setX.invoke(point2DClassSafe, xNew);
+		setY.invoke(point2DClassSafe, yNew);
+		
+		assertEquals(getX.invoke(point2DClassSafe), xNew);
+		assertEquals(getY.invoke(point2DClassSafe), yNew);
+		Assert.fail();
+	}
+
 	/*
 	 * Create a value type
 	 * 
@@ -166,8 +197,8 @@ public class ValueTypeTests {
 		MethodHandle makeFlattenedLine2D = lookup.findStatic(flattenedLine2DClass, "makeValueGeneric", MethodType.methodType(flattenedLine2DClass, Object.class, Object.class));
 		
 		
-		/*
- 		TODO need q signature support to do anything else with FalttenedLine2D
+		
+ 		// TODO need q signature support to do anything else with FalttenedLine2D
 		
 		MethodHandle getSt = generateGenericGetter(flattenedLine2DClass, "st");
  		MethodHandle setSt = generateGenericSetter(flattenedLine2DClass, "st");
@@ -209,7 +240,7 @@ public class ValueTypeTests {
 		assertEquals(getX.invoke(getEn.invoke(line2D)), x2New);
 		assertEquals(getY.invoke(getEn.invoke(line2D)), y2New);
 		
-		*/
+		
 
 	}
 
