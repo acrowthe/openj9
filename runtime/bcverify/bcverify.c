@@ -1668,22 +1668,24 @@ simulateStack (J9BytecodeVerificationData * verifyData)
 			index = PARAM_16(bcIndex, 1);
 			info = &constantPool[index];
 			utf8string = ((J9UTF8 *) (J9ROMNAMEANDSIGNATURE_SIGNATURE(J9ROMFIELDREF_NAMEANDSIGNATURE((J9ROMFieldRef *) info))));
-
-			if (bc >= JBgetfield) {
-				/* field bytecode receiver */
-				DROP(1);
-			}
 			
-			if (bc & 1) {
-				/* JBputfield/JBpustatic - odd bc's */
+			switch (bc) {
+			case JBputfield: /* Field bytecode recievers */
+#if defined(J9VM_OPT_VALHALLA_VALUE_TYPES)
+			case JBwithfield: // TODO: ValueTypes Perform correct verification
+#endif
+				DROP(1); /* fallthrough */
+			case JBputstatic:
 				DROP(1);
 				if ((*J9UTF8_DATA(utf8string) == 'D') || (*J9UTF8_DATA(utf8string) == 'J')) {
 					DROP(1);
 				}
-
-			} else {
-				/* JBgetfield/JBgetstatic - even bc's */
+				break;
+			case JBgetfield:  /* Field bytecode reciever */
+				DROP(1); /* fallthrough */
+			case JBgetstatic:
 				stackTop = pushFieldType(verifyData, utf8string, stackTop);
+				break;
 			}
 			break;
 
@@ -1747,6 +1749,9 @@ simulateStack (J9BytecodeVerificationData * verifyData)
 			switch (bc) {
 			case JBnew:
 			case JBnewdup:
+#if defined(J9VM_OPT_VALHALLA_VALUE_TYPES)
+			case JBdefaultvalue: // TODO: ValueTypes Perform correct initialization and verification
+#endif
 				/* put a uninitialized object of the correct type on the stack */
 				PUSH(BCV_SPECIAL_NEW | (start << BCV_CLASS_INDEX_SHIFT));
 				break;
