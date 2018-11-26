@@ -213,6 +213,55 @@ public class ValueTypeTests {
 
 	}
 
+	@Test(priority=2)
+	static public void testCreateLine2DRef() throws Throwable {
+		String fields[] = {"st:QPoint2D;:value", "en:QPoint2D;:value"};
+		Class line2DRefClass = ValueTypeGenerator.generateRefClass("Line2DRef", fields);
+		/* Setup Line2DRef methods */
+		MethodHandle makeLine2DRef = lookup.findStatic(line2DRefClass, "makeRefGeneric", MethodType.methodType(line2DRefClass, Object.class, Object.class));
+		MethodHandle getStRef = generateGenericGetter(line2DRefClass, "st");
+ 		MethodHandle setStRef = generateGenericSetter(line2DRefClass, "st");
+ 		MethodHandle getEnRef = generateGenericGetter(line2DRefClass, "en");
+ 		MethodHandle setEnRef = generateGenericSetter(line2DRefClass, "en");
+ 		
+		int x = 0xFFEEFFEE;
+		int y = 0xAABBAABB;
+		int xNew = 0x11223344;
+		int yNew = 0x99887766;
+		int x2 = 0xCCDDCCDD;
+		int y2 = 0xAAFFAAFF;
+		int x2New = 0x55337799;
+		int y2New = 0x88662244;
+		
+		Object st = makePoint2D.invoke(x, y);
+		Object en = makePoint2D.invoke(x2, y2);
+		
+		assertEquals(getX.invoke(st), x);
+		assertEquals(getY.invoke(st), y);
+		assertEquals(getX.invoke(en), x2);
+		assertEquals(getY.invoke(en), y2);
+		
+		Object line2D = makeLine2DRef.invoke(st, en);
+		
+		assertEquals(getX.invoke(getStRef.invoke(line2D)), x);
+		assertEquals(getY.invoke(getStRef.invoke(line2D)), y);
+		assertEquals(getX.invoke(getEnRef.invoke(line2D)), x2);
+		assertEquals(getY.invoke(getEnRef.invoke(line2D)), y2);
+
+		Object stNew = makePoint2D.invoke(xNew, yNew);
+		Object enNew = makePoint2D.invoke(x2New, y2New);
+		
+		setStRef.invoke(line2D, stNew);
+		setEnRef.invoke(line2D, enNew);
+		
+		assertEquals(getX.invoke(getStRef.invoke(line2D)), xNew);
+		assertEquals(getY.invoke(getStRef.invoke(line2D)), yNew);
+		assertEquals(getX.invoke(getEnRef.invoke(line2D)), x2New);
+		assertEquals(getY.invoke(getEnRef.invoke(line2D)), y2New);
+
+		//TODO need q signature support to do anything else with Line2D
+	}
+
 	/*
 	 * Test with nested values
 	 * 
@@ -306,4 +355,23 @@ public class ValueTypeTests {
 		return null;
 	}
 
+	static {
+		System.loadLibrary("jniqtypetests");
+	}
+
+	private native void printLineStart(java.lang.Object qTypeObject);
+	
+	@Test(priority=4)
+	static public void testyJNI() throws Throwable {
+		ValueTypeTests test = new ValueTypeTests();
+		String fields[] = {"st:QPoint2D;:value"};
+		Class line2DRefClass = ValueTypeGenerator.generateRefClass("Line2DRef", fields);
+		MethodHandle makeLine2DRef = lookup.findStatic(line2DRefClass, "makeRefGeneric", MethodType.methodType(line2DRefClass, Object.class, Object.class));
+		int x = 0xFFEEFFEE, y = 0xAABBAABB;
+		Object st = makePoint2D.invoke(x, y);
+		Object en = makePoint2D.invoke(y, x);
+		Object line2D = makeLine2DRef.invoke(st, en);
+
+		test.printLineStart(line2D);
+	}
 }

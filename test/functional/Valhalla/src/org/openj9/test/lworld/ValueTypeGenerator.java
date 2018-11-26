@@ -27,6 +27,7 @@ import jdk.internal.misc.Unsafe;
 
 import static org.objectweb.asm.Opcodes.*;
 
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
@@ -465,6 +466,10 @@ public class ValueTypeGenerator {
 	}
 	
 	private static Class<?> defineClass(String className, byte[] bytes, ClassLoader loader, ProtectionDomain pD) throws Throwable {
+		try (FileOutputStream fos = new FileOutputStream("/home/andrewc/space/" + className + ".class")) {
+			fos.write(bytes);
+			System.out.printf("File /home/andrewc/space/%s.class written%n", className);
+		}
 		return unsafe.defineClass(className, bytes, 0, bytes.length, loader, pD);
 	}
 	
